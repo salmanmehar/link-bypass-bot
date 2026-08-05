@@ -6,30 +6,20 @@ from flask import Flask
 from threading import Thread
 from telethon import TelegramClient, events
 
-# Minimal Stable Web Server for Render
+# Minimal Flask App for Render Keep-Alive
 app = Flask(__name__)
 
 @app.route('/')
 def home():
-    return "Bot is Running Live!"
+    return "Bypass Bot Server Running Live!"
 
-def run():
-    port = int(os.environ.get("PORT", 8080))
-    app.run(host='0.0.0.0', port=port)
-
-def keep_alive():
-    t = Thread(target=run)
-    t.daemon = True
-    t.start()
-
-keep_alive()
-
-# Telegram Credentials
+# Environment Variables
 API_ID = int(os.environ.get("API_ID", 0))
 API_HASH = os.environ.get("API_HASH", "")
 BOT_TOKEN = os.environ.get("BOT_TOKEN", "")
 
-bot = TelegramClient(None, API_ID, API_HASH).start(bot_token=BOT_TOKEN)
+# Initialize Telethon Client
+bot = TelegramClient('bypass_session', API_ID, API_HASH)
 
 async def resolve_final_url(url, depth=0):
     if depth > 5:
@@ -86,15 +76,15 @@ async def handle_message(event):
 
     text = event.message.text or ""
     if text.startswith('/start'):
-        await event.reply("👋 Hello! Shortener links bhejien, main real-time bypass karke direct file link dunga.")
+        await event.reply("👋 Hello! Shortener link bhejien, main real-time bypass karke direct link dunga.")
         return
 
     urls = re.findall(r'https?://[^\s]+', text)
     if not urls:
-        await event.reply("⚠️ Kripya valid Link bhejein.")
+        await event.reply("⚠️ Kripya ek valid Link bhejein.")
         return
 
-    status_msg = await event.reply("🔍 Link bypass ho raha hai, wait karein...")
+    status_msg = await event.reply("🔍 Link bypass ho raha hai, thoda wait karein...")
     target_url = urls[0]
 
     direct_link = await bypass_url_deep(target_url)
@@ -103,10 +93,22 @@ async def handle_message(event):
         await status_msg.edit(
             f"✅ **Final Link Bypassed!**\n\n"
             f"🔗 **Direct Link:**\n{direct_link}\n\n"
-            f"⚡ *Ye live fetch kiya gaya URL hai.*"
+            f"⚡ *Real-time live fetch किया गया URL.*"
         )
     else:
         await status_msg.edit("❌ Link bypass nahi ho paya.")
 
-print("Bot Running Smoothly...")
-bot.run_until_disconnected()
+def start_telegram_bot():
+    loop = asyncio.new_event_loop()
+    asyncio.set_event_loop(loop)
+    bot.start(bot_token=BOT_TOKEN)
+    print("Telegram Bot Connected Successfully!")
+    bot.run_until_disconnected()
+
+# Background Thread for Telegram Client
+t = Thread(target=start_telegram_bot, daemon=True)
+t.start()
+
+if __name__ == '__main__':
+    port = int(os.environ.get("PORT", 8080))
+    app.run(host='0.0.0.0', port=port)
