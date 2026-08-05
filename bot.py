@@ -6,68 +6,61 @@ from flask import Flask
 from threading import Thread
 from telethon import TelegramClient, events
 
-# Minimal Flask App for Render Keep-Alive
 app = Flask(__name__)
 
 @app.route('/')
 def home():
-    return "Bypass Bot Server Running Live!"
+    return "Bypass Engine Online"
 
-# Environment Variables
 API_ID = int(os.environ.get("API_ID", 0))
 API_HASH = os.environ.get("API_HASH", "")
 BOT_TOKEN = os.environ.get("BOT_TOKEN", "")
 
-# Initialize Telethon Client
 bot = TelegramClient('bypass_session', API_ID, API_HASH)
 
-async def resolve_final_url(url, depth=0):
-    if depth > 5:
-        return url
-
+async def bypass_url_advanced(url):
     headers = {
-        'User-Agent': 'Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Mobile Safari/537.36',
-        'Cache-Control': 'no-cache, no-store, must-revalidate'
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
+        'Accept-Language': 'en-US,en;q=0.5',
     }
 
-    try:
-        async with aiohttp.ClientSession(headers=headers) as session:
-            async with session.get(url, allow_redirects=True, timeout=12) as resp:
-                text = await resp.text()
-                final_dest = str(resp.url)
-
-                found_links = re.findall(r'https?://(?:devuploads\.com|download|drive\.google|mega|mediafire|apk)[^\s"\'<>]+', text, re.IGNORECASE)
-                if found_links:
-                    return found_links[0]
-
-                if final_dest != url and not any(x in final_dest for x in ['sarkarijob', 'health', 'blog', 'news']):
-                    return final_dest
-    except Exception:
-        pass
-
-    return url
-
-async def bypass_url_deep(url):
-    api_list = [
-        f"https://api.sckey.workers.dev/bypass?url={url}&nocache=true",
-        f"https://bypass.id/api/v1/bypass?url={url}"
+    # Primary API Bypassers
+    api_endpoints = [
+        f"https://bypass.city/api/bypass?url={url}",
+        f"https://api.sckey.workers.dev/bypass?url={url}",
+        f"https://bypass-api.vercel.app/api?url={url}"
     ]
-    
-    headers = {'User-Agent': 'Mozilla/5.0'}
 
     async with aiohttp.ClientSession(headers=headers) as session:
-        for api in api_list:
+        for api in api_endpoints:
             try:
-                async with session.get(api, timeout=12) as resp:
+                async with session.get(api, timeout=10) as resp:
                     if resp.status == 200:
                         data = await resp.json()
-                        res = data.get("destination") or data.get("result") or data.get("url")
-                        if res and "discord" not in res.lower() and "shut down" not in res.lower():
-                            return await resolve_final_url(res)
+                        result = data.get("destination") or data.get("result") or data.get("url") or data.get("bypassed_url")
+                        if result and result != url and "discord" not in result.lower():
+                            return result
             except Exception:
                 continue
 
-    return await resolve_final_url(url)
+        # Direct HTML Scraper for DevUploads / Direct Redirects
+        try:
+            async with session.get(url, allow_redirects=True, timeout=10) as resp:
+                text = await resp.text()
+                final_dest = str(resp.url)
+                
+                # Check for direct file links inside HTML scripts/meta tags
+                match = re.search(r'(https?://(?:devuploads\.com|drive\.google|mediafire|mega|download)[^\s"\'<>]+)', text, re.I)
+                if match:
+                    return match.group(1)
+                
+                if final_dest != url and "vipshort" not in final_dest:
+                    return final_dest
+        except Exception:
+            pass
+
+    return None
 
 @bot.on(events.NewMessage(incoming=True))
 async def handle_message(event):
@@ -87,16 +80,19 @@ async def handle_message(event):
     status_msg = await event.reply("🔍 Link bypass ho raha hai, thoda wait karein...")
     target_url = urls[0]
 
-    direct_link = await bypass_url_deep(target_url)
+    direct_link = await bypass_url_advanced(target_url)
 
-    if direct_link:
+    if direct_link and direct_link != target_url:
         await status_msg.edit(
             f"✅ **Final Link Bypassed!**\n\n"
             f"🔗 **Direct Link:**\n{direct_link}\n\n"
             f"⚡ *Real-time live fetch किया गया URL.*"
         )
     else:
-        await status_msg.edit("❌ Link bypass nahi ho paya.")
+        await status_msg.edit(
+            "❌ Link bypass nahi ho paya.\n"
+            "Is shortener me Cloudflare/Captcha security lagi hui hai."
+        )
 
 def start_telegram_bot():
     loop = asyncio.new_event_loop()
@@ -105,7 +101,6 @@ def start_telegram_bot():
     print("Telegram Bot Connected Successfully!")
     bot.run_until_disconnected()
 
-# Background Thread for Telegram Client
 t = Thread(target=start_telegram_bot, daemon=True)
 t.start()
 
