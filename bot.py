@@ -6,12 +6,11 @@ import threading
 from http.server import HTTPServer, BaseHTTPRequestHandler
 from telethon import TelegramClient, events
 
-# Web server for Render keep-alive
 class SimpleHTTPRequestHandler(BaseHTTPRequestHandler):
     def do_GET(self):
         self.send_response(200)
         self.end_headers()
-        self.wfile.write(b"Live Auto-Refresh Bypass Bot Active!")
+        self.wfile.write(b"Multi-Layer Bypass Bot Active!")
 
 def run_web_server():
     port = int(os.environ.get("PORT", 8080))
@@ -26,44 +25,56 @@ BOT_TOKEN = os.environ.get("BOT_TOKEN", "")
 
 bot = TelegramClient(None, API_ID, API_HASH).start(bot_token=BOT_TOKEN)
 
-# Real-time bypass function without caching
-async def bypass_url_live(url):
-    # Headers to bypass server-side caching & force fresh fetch
+# Multi-layer recursive unwrapper
+async def resolve_final_url(url, depth=0):
+    if depth > 5:
+        return url
+
     headers = {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
-        'Cache-Control': 'no-cache, no-store, must-revalidate',
-        'Pragma': 'no-cache'
+        'User-Agent': 'Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Mobile Safari/537.36',
+        'Cache-Control': 'no-cache'
     }
 
-    # Public Real-Time Bypass Endpoints
-    api_list = [
-        f"https://api.sckey.workers.dev/bypass?url={url}&nocache=true",
-        f"https://bypass.id/api/v1/bypass?url={url}&refresh=true"
-    ]
-    
-    async with aiohttp.ClientSession(headers=headers) as session:
-        for api_endpoint in api_list:
-            try:
-                async with session.get(api_endpoint, timeout=12) as resp:
-                    if resp.status == 200:
-                        data = await resp.json()
-                        res = data.get("destination") or data.get("result") or data.get("bypassed_url") or data.get("url")
-                        if res and "discord" not in res.lower() and "shut down" not in res.lower():
-                            return res
-            except Exception:
-                continue
-
-    # Direct Unwrapper / Redirect Fetch (Bypasses old cached headers)
     try:
         async with aiohttp.ClientSession(headers=headers) as session:
-            async with session.get(url, allow_redirects=True, timeout=10) as resp:
-                final_url = str(resp.url)
-                if final_url != url and "discord" not in final_url:
-                    return final_url
+            async with session.get(url, allow_redirects=True, timeout=12) as resp:
+                text = await resp.text()
+                final_dest = str(resp.url)
+
+                # Look for embedded target URLs inside ad scripts/HTML (DevUploads, Drive, APK, etc.)
+                found_links = re.findall(r'https?://(?:devuploads\.com|download|drive\.google|mega|mediafire|apk)[^\s"\'<>]+', text, re.IGNORECASE)
+                if found_links:
+                    return found_links[0]
+
+                if final_dest != url and not any(x in final_dest for x in ['sarkarijob', 'health', 'blog', 'news']):
+                    return final_dest
     except Exception:
         pass
 
-    return None
+    return url
+
+async def bypass_url_deep(url):
+    api_list = [
+        f"https://api.sckey.workers.dev/bypass?url={url}&nocache=true",
+        f"https://bypass.id/api/v1/bypass?url={url}"
+    ]
+    
+    headers = {'User-Agent': 'Mozilla/5.0'}
+
+    async with aiohttp.ClientSession(headers=headers) as session:
+        for api in api_list:
+            try:
+                async with session.get(api, timeout=12) as resp:
+                    if resp.status == 200:
+                        data = await resp.json()
+                        res = data.get("destination") or data.get("result") or data.get("url")
+                        if res and "discord" not in res.lower():
+                            # Deep resolve intermediate ad links
+                            return await resolve_final_url(res)
+            except Exception:
+                continue
+
+    return await resolve_final_url(url)
 
 @bot.on(events.NewMessage(incoming=True))
 async def handle_message(event):
@@ -71,32 +82,28 @@ async def handle_message(event):
         return
 
     text = event.message.text or ""
-    
     if text.startswith('/start'):
-        await event.reply("👋 Hello! Mujhe koi bhi shortener link bhejien. Main Real-Time live bypassing karunga taaki agar file replace hui ho toh aapko hamesha LATEST file hi mile.")
+        await event.reply("👋 Hello! Shortener links bhejien, main ads layers bypass karke final link nikalunga.")
         return
 
     urls = re.findall(r'https?://[^\s]+', text)
     if not urls:
-        await event.reply("⚠️ Kripya ek valid Link bhejein.")
+        await event.reply("⚠️ Kripya valid Link bhejein.")
         return
 
-    status_msg = await event.reply("🔄 Live link fetch ho raha hai (Fetching latest file)...")
+    status_msg = await event.reply("🔍 Ads & Intermediate layers bypass ho rahi hain...")
     target_url = urls[0]
 
-    # Dynamic Live Fetch
-    direct_link = await bypass_url_live(target_url)
+    direct_link = await bypass_url_deep(target_url)
 
     if direct_link:
         await status_msg.edit(
-            f"✅ **Latest Link Bypassed!**\n\n"
-            f"🔗 **Direct Download Link:**\n{direct_link}\n\n"
-            f"⚡ *Note: Ye live fetch kiya gaya hai, isme purani corrupted file ka cache nahi hai.*"
+            f"✅ **Final File Link Extracted!**\n\n"
+            f"🔗 **Direct Link:**\n{direct_link}\n\n"
+            f"⚡ *Isme latest file ka live URL include hai.*"
         )
     else:
-        await status_msg.edit(
-            "❌ Ye link bypass nahi ho paya ya server response nahi de raha."
-        )
+        await status_msg.edit("❌ Link bypass nahi ho paya.")
 
-print("Live Bypass Bot Online...")
+print("Deep Bypass Bot Online...")
 bot.run_until_disconnected()
